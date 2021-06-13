@@ -4,6 +4,7 @@
 using namespace std;
 
 string fileName = "mempool.csv";
+int blockWeight = 4000000;
 set<string> included_tx_id; //contains the tx_ids which are included
 class Transaction
 {
@@ -45,9 +46,43 @@ void readCSV(string fileName,unordered_map<string,Transaction*>& umap){
     cout<<"num of transactions read : "<<umap.size()<<endl;
 }
 
+bool isValidTx(Transaction* tx,set<string>& included_tx_set){
+    //if all the parents of tx are present in included_tx_set it is valid
+    for(auto parent : tx->parents){
+        if(included_tx_set.find(parent) == included_tx_set.end())
+            return false;
+    }
+    return true;
+}
 int main(){
-
     unordered_map<string,Transaction*> umap; //map tx_id to its pointer
     readCSV(fileName,umap);
-    
+    set<pair<float,Transaction*>,greater<pair<float,Transaction*>>> tx_set;//maintaining order of highest fee/weight
+    set<string> included_tx_set; // contains all the tx which are included in block
+    for(auto p:umap){
+        tx_set.insert({(float)p.second->fee/(float)p.second->weight,p.second});
+    }
+    cout<<"number of tx in set "<<tx_set.size()<<endl;
+    int currBlockWeight = 0;
+    int totalFee = 0;
+    while(!tx_set.empty() && currBlockWeight<blockWeight){
+        bool found = false;
+        for(auto itr = tx_set.begin();itr != tx_set.end();itr++){
+            Transaction* curr_tx = (*itr).second;
+            int currFee = curr_tx->fee;
+            int currWeight = curr_tx->weight;
+            if(isValidTx(curr_tx,included_tx_set) && currBlockWeight + currWeight <= blockWeight){
+                currBlockWeight += currWeight;
+                included_tx_set.insert(curr_tx->tx_id);
+                totalFee += currFee;
+                tx_set.erase(itr);
+                found = true;
+                break;
+            }
+        }
+        if(!found) // no valid tx was found so nothing can be added
+            break; 
+    }
+    cout<<"num of tx in final block "<<included_tx_set.size()<<endl;
+    cout<<"total fee in curr block : "<<totalFee<<" total weight : "<<currBlockWeight<<endl;
 }
