@@ -54,15 +54,21 @@ bool isValidTx(Transaction* tx,set<string>& included_tx_set){
     }
     return true;
 }
+void writeOutput(vector<string>& included_tx_vector,string fn){
+    ofstream myfile(fn);
+    for(auto s:included_tx_vector)
+        myfile<<s<<endl;
+    myfile.close();
+}
 int main(){
     unordered_map<string,Transaction*> umap; //map tx_id to its pointer
     readCSV(fileName,umap);
     set<pair<float,Transaction*>,greater<pair<float,Transaction*>>> tx_set;//maintaining order of highest fee/weight
     set<string> included_tx_set; // contains all the tx which are included in block
+    vector<string> included_tx_vector; // need this for maintaining order of output
     for(auto p:umap){
         tx_set.insert({(float)p.second->fee/(float)p.second->weight,p.second});
     }
-    cout<<"number of tx in set "<<tx_set.size()<<endl;
     int currBlockWeight = 0;
     int totalFee = 0;
     while(!tx_set.empty() && currBlockWeight<blockWeight){
@@ -74,6 +80,7 @@ int main(){
             if(isValidTx(curr_tx,included_tx_set) && currBlockWeight + currWeight <= blockWeight){
                 currBlockWeight += currWeight;
                 included_tx_set.insert(curr_tx->tx_id);
+                included_tx_vector.push_back(curr_tx->tx_id);
                 totalFee += currFee;
                 tx_set.erase(itr);
                 found = true;
@@ -85,4 +92,5 @@ int main(){
     }
     cout<<"num of tx in final block "<<included_tx_set.size()<<endl;
     cout<<"total fee in curr block : "<<totalFee<<" total weight : "<<currBlockWeight<<endl;
+    writeOutput(included_tx_vector,"block_greedy.txt");
 }
